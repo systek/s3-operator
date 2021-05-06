@@ -82,6 +82,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("S3"),
 		Scheme: mgr.GetScheme(),
+		//
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "S3")
 		os.Exit(1)

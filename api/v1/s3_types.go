@@ -27,9 +27,7 @@ import (
 type S3Spec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of S3. Edit S3_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	BucketName string `json:"bucketName,omitempty"`
 }
 
 // S3Status defines the observed state of S3

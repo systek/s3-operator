@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,7 +51,23 @@ type S3Reconciler struct {
 func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("s3", req.NamespacedName)
 
-	// your logic here
+	s3 := &systeknov1.S3{}
+
+	err := r.Client.Get(ctx, client.ObjectKey{
+		Namespace: req.Namespace,
+		Name:      req.Name,
+	}, s3)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			r.Log.Info("S3 resource not found. Ignoring since object must be deleted.")
+			return ctrl.Result{}, nil
+		}
+		//Requeue the request
+		return ctrl.Result{}, err
+	}
+
+	r.Log.Info("Got s3 event ", "Name", req.Name, "Namespace", req.Name)
 
 	return ctrl.Result{}, nil
 }
