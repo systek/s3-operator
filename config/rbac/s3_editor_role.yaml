@@ -1,0 +1,24 @@
+# permissions for end users to edit s3s.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: s3-editor-role
+rules:
+- apiGroups:
+  - systek.no
+  resources:
+  - s3s
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - systek.no
+  resources:
+  - s3s/status
+  verbs:
+  - get

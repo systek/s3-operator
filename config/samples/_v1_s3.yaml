@@ -1,0 +1,7 @@
+apiVersion: systek.no/v1
+kind: S3
+metadata:
+  name: s3-sample
+spec:
+  # Add fields here
+  foo: bar
