@@ -75,6 +75,12 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	s3Object.Status.Accepted = "OK"
+	err = r.Client.Status().Update(ctx, s3Object)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	r.Log.Info("Got s3 event ", "Name", req.Name, "Namespace", req.Name)
 	r.Log.Info("Created new Bucket", "Value", resp)
 

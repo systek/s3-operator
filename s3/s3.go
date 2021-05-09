@@ -26,7 +26,6 @@ type s3Client struct {
 }
 
 func (a s3Client) CreateBucket(bucketName string) (*s3.CreateBucketOutput, error) {
-
 	resp, err := a.sess.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucketName),
 	})
