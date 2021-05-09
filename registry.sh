@@ -39,4 +39,7 @@ data:
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
+docker pull gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
+docker tag gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0 localhost:5000/kube-rbac-proxy:v0.5.0
+docker push localhost:5000/kube-rbac-proxy:v0.5.0
 
