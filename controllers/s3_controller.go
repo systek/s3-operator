@@ -18,21 +18,23 @@ package controllers
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
+	systeknov1 "github.com/systek/s3-operator/api/v1"
+	"github.com/systek/s3-operator/s3"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	systeknov1 "github.com/systek/s3-operator/api/v1"
 )
 
 // S3Reconciler reconciles a S3 object
 type S3Reconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log      logr.Logger
+	Scheme   *runtime.Scheme
+	S3Client s3.Client
 }
 
 // +kubebuilder:rbac:groups=systek.no,resources=s3s,verbs=get;list;watch;create;update;patch;delete
@@ -51,12 +53,12 @@ type S3Reconciler struct {
 func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("s3", req.NamespacedName)
 
-	s3 := &systeknov1.S3{}
+	s3Object := &systeknov1.S3{}
 
 	err := r.Client.Get(ctx, client.ObjectKey{
 		Namespace: req.Namespace,
 		Name:      req.Name,
-	}, s3)
+	}, s3Object)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -67,7 +69,14 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	resp, err := r.S3Client.CreateBucket(s3Object.Spec.BucketName)
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	r.Log.Info("Got s3 event ", "Name", req.Name, "Namespace", req.Name)
+	r.Log.Info("Created new Bucket", "Value", resp)
 
 	return ctrl.Result{}, nil
 }

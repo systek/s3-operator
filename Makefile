@@ -92,11 +92,11 @@ generate: controller-gen
 
 # Build the docker image
 docker-build:
-	docker build -t ${IMG} .
+	docker build -t localhost:5000/s3-operator:latest .
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push localhost:5000/s3-operator:latest
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen

@@ -33,6 +33,7 @@ import (
 
 	systeknov1 "github.com/systek/s3-operator/api/v1"
 	"github.com/systek/s3-operator/controllers"
+	"github.com/systek/s3-operator/s3"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -78,10 +79,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	s3Client := s3.NewS3Client()
+
 	if err = (&controllers.S3Reconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("S3"),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("S3"),
+		Scheme:   mgr.GetScheme(),
+		S3Client: s3Client,
 		//
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "S3")
