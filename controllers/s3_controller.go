@@ -71,7 +71,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		//Requeue the request
 		return ctrl.Result{}, err
 	}
-
+	// add finalizer
 	if len(s3Object.GetFinalizers()) < 1 {
 		s3Object.SetFinalizers([]string{"systek.no/finalizer"})
 		err = r.Client.Update(ctx, s3Object)
@@ -81,7 +81,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			}, err
 		}
 	}
-
+	// handle delete
 	if !s3Object.DeletionTimestamp.IsZero() {
 		_, derr := r.S3Client.DeleteBucket(s3Object.Spec.BucketName)
 		if derr != nil {
@@ -98,6 +98,11 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
+	// Check if status is Success
+	if s3Object.Status.Status == "Success" {
+		return ctrl.Result{}, nil
+	}
+
 	//Handle common errors
 	resp, err := r.S3Client.CreateBucket(s3Object.Spec.BucketName)
 	if aerr, ok := err.(awserr.Error); ok {
@@ -107,16 +112,13 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		case awss3.ErrCodeBucketAlreadyOwnedByYou:
 			return ctrl.Result{}, nil
 		default:
-			r.Log.Error(err, "CreateBucket failed")
+			r.Log.Error(aerr, "CreateBucket failed")
 		}
-	} else {
-		r.Log.Error(err, "CreateBucket failed")
-		return ctrl.Result{}, nil
 	}
-
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 
 	s3Object.Status.Status = "Success"
 	s3Object.Status.Location = *resp.Location
