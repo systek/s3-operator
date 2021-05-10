@@ -34,7 +34,7 @@ type S3Spec struct {
 type S3Status struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Accepted string `json:"accepted, omitempty"`
+	Accepted string `json:"accepted,omitempty"`
 }
 
 // +kubebuilder:object:root=true

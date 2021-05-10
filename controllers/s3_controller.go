@@ -18,9 +18,12 @@ package controllers
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/go-logr/logr"
 	systeknov1 "github.com/systek/s3-operator/api/v1"
 	"github.com/systek/s3-operator/s3"
@@ -69,7 +72,21 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	//Handle common errors
 	resp, err := r.S3Client.CreateBucket(s3Object.Spec.BucketName)
+	if aerr, ok := err.(awserr.Error); ok {
+		switch aerr.Code() {
+		case awss3.ErrCodeBucketAlreadyExists:
+			return ctrl.Result{}, err
+		case awss3.ErrCodeBucketAlreadyOwnedByYou:
+			return ctrl.Result{}, nil
+		default:
+			r.Log.Error(err, "CreateBucket failed")
+		}
+	} else {
+		r.Log.Error(err, "CreateBucket failed")
+		return ctrl.Result{}, nil
+	}
 
 	if err != nil {
 		return ctrl.Result{}, err
@@ -82,8 +99,8 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 
 	r.Log.Info("Got s3 event ", "Name", req.Name, "Namespace", req.Name)
-	r.Log.Info("Created new Bucket", "Value", resp)
 
+	r.Log.Info("Created new Bucket", "Value", resp)
 	return ctrl.Result{}, nil
 }
 
@@ -91,5 +108,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 func (r *S3Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&systeknov1.S3{}).
+		//Prevent reconcile on status changes
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
