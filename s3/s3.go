@@ -47,10 +47,33 @@ func (a s3Client) CreateBucket(bucketName string) (*s3.CreateBucketOutput, error
 	return resp, nil
 }
 
+func (a s3Client) DeleteBucket(bucketName string) (*s3.DeleteBucketOutput, error) {
+	resp, err := a.sess.DeleteBucket(&s3.DeleteBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Wait until bucket is created before finishing
+	fmt.Printf("Waiting for bucket %q to be created...\n", bucketName)
+
+	err = a.sess.WaitUntilBucketNotExists(&s3.HeadBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Bucket %q successfully deleted\n", bucketName)
+	return resp, nil
+}
+
 //func (a s3Client) Delete() error {}
 
 type Client interface {
 	CreateBucket(string) (*s3.CreateBucketOutput, error)
 
-	//Delete() error
+	DeleteBucket(string) (*s3.DeleteBucketOutput, error)
 }

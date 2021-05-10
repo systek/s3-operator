@@ -72,6 +72,32 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	if len(s3Object.GetFinalizers()) < 1 {
+		s3Object.SetFinalizers([]string{"systek.no/finalizer"})
+		err = r.Client.Update(ctx, s3Object)
+		if err != nil {
+			return ctrl.Result{
+				Requeue: true,
+			}, err
+		}
+	}
+
+	if !s3Object.DeletionTimestamp.IsZero() {
+		_, derr := r.S3Client.DeleteBucket(s3Object.Spec.BucketName)
+		if derr != nil {
+			//TODO: Change
+			return ctrl.Result{}, derr
+		}
+		s3Object.SetFinalizers(remove(s3Object.GetFinalizers(), "systek.no/finalizer"))
+
+		uerr := r.Client.Update(ctx, s3Object)
+		if uerr != nil {
+			return ctrl.Result{}, uerr
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	//Handle common errors
 	resp, err := r.S3Client.CreateBucket(s3Object.Spec.BucketName)
 	if aerr, ok := err.(awserr.Error); ok {
@@ -92,7 +118,8 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	s3Object.Status.Accepted = "OK"
+	s3Object.Status.Status = "Success"
+	s3Object.Status.Location = *resp.Location
 	err = r.Client.Status().Update(ctx, s3Object)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -111,4 +138,14 @@ func (r *S3Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		//Prevent reconcile on status changes
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
+}
+
+func remove(strings []string, removeString string) []string {
+	ret := make([]string, 0, len(strings))
+	for _, s := range strings {
+		if s != removeString {
+			ret = append(ret, s)
+		}
+	}
+	return ret
 }
