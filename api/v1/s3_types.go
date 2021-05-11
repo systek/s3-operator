@@ -32,9 +32,10 @@ type S3Spec struct {
 
 // S3Status defines the observed state of S3
 type S3Status struct {
-	Status   string `json:"status,omitempty"`
-	Message  string `json:"message,omitempty"`
-	Location string `json:"location,omitempty"`
+	Status     string `json:"status,omitempty"`
+	BucketName string `json:"bucketName,omitempty"`
+	Location   string `json:"location,omitempty"`
+	Message    string `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true

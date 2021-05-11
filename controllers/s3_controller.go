@@ -98,6 +98,22 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
+	//Check for updates
+	if hasChanged(s3Object) {
+		_, derr := r.S3Client.DeleteBucket(s3Object.Status.BucketName)
+		if derr != nil {
+			return ctrl.Result{}, derr
+		}
+		//Update status and requeue
+		s3Object.Status = systeknov1.S3Status{}
+		uerr := r.Client.Status().Update(ctx, s3Object)
+		if uerr != nil {
+			return ctrl.Result{}, uerr
+		}
+
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	// Check if status is Success
 	if s3Object.Status.Status == "Success" {
 		return ctrl.Result{}, nil
@@ -115,10 +131,10 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			r.Log.Error(aerr, "CreateBucket failed")
 		}
 	}
+
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
 
 	s3Object.Status.Status = "Success"
 	s3Object.Status.Location = *resp.Location
@@ -129,7 +145,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	r.Log.Info("Got s3 event ", "Name", req.Name, "Namespace", req.Name)
 
-	r.Log.Info("Created new Bucket", "Value", resp)
+	r.Log.Info("BucketName new Bucket", "Value", resp)
 	return ctrl.Result{}, nil
 }
 
@@ -140,6 +156,10 @@ func (r *S3Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		//Prevent reconcile on status changes
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
+}
+
+func hasChanged(s3Object *systeknov1.S3) bool {
+	return s3Object.Status.BucketName != s3Object.Spec.BucketName
 }
 
 func remove(strings []string, removeString string) []string {
