@@ -44,6 +44,8 @@ spec:
           status:
             description: S3Status defines the observed state of S3
             properties:
+              bucketName:
+                type: string
               location:
                 type: string
               message:

@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/systek/s3-operator/iam"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -81,12 +82,13 @@ func main() {
 	}
 
 	s3Client := s3.NewS3Client()
-
+	iamClient := iam.NewIamClient()
 	if err = (&controllers.S3Reconciler{
 		Client:   mgr.GetClient(),
 		Log:      ctrl.Log.WithName("controllers").WithName("S3"),
 		Scheme:   mgr.GetScheme(),
 		S3Client: s3Client,
+		IAMClient: iamClient,
 		//
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "S3")

@@ -4,4 +4,4 @@ metadata:
   name: s3-sample
 spec:
   # Add fields here
-  bucketName: systek-operator-bucket-test
+  bucketName: blogginnlegg
