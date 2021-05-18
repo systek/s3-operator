@@ -1,7 +1,7 @@
 apiVersion: systek.no/v1
 kind: S3
 metadata:
-  name: s3-sample
+  name: s3-custom-object
 spec:
   # Add fields here
-  bucketName: blogginnlegg
+  bucketName: s3-custom-object-bucket

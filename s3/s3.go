@@ -3,8 +3,10 @@ package s3
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	awss3 "github.com/aws/aws-sdk-go/service/s3"
 )
 
 func NewS3Client() Client {
@@ -53,6 +55,11 @@ func (a s3Client) DeleteBucket(bucketName string) (*s3.DeleteBucketOutput, error
 	})
 
 	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			if awss3.ErrCodeNoSuchBucket == awsErr.Code() {
+				return nil, nil
+			}
+		}
 		return nil, err
 	}
 
