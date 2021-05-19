@@ -31,7 +31,7 @@ type iamClient struct {
 type Client interface {
 	CreateAccessKey(string) (*iam.CreateAccessKeyOutput, error)
 	CreateUser(string) (string, error)
-	CreateAndAttachPolicy(string, string, string) error
+	CreateAndAttachPolicy(string, string, string) (*iam.CreatePolicyOutput, error)
 	DeletePolicy(string, string) error
 }
 
@@ -95,7 +95,7 @@ func (a iamClient) attachPolicy(userName string, policyArn string) error {
 	return nil
 }
 
-func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, bucketName string) error{
+func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, bucketName string) (*iam.CreatePolicyOutput, error){
 
 	anonBucketName := struct {
 		BucketName string
@@ -115,7 +115,7 @@ func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, buc
 	t, err := template.New("PolicyDocument").Parse(policyDocument)
 	if err != nil {
 		fmt.Println("Could not parse template")
-		return err
+		return nil, err
 	}
 	var tpl bytes.Buffer
 	err = t.Execute(&tpl, anonBucketName)
@@ -127,7 +127,7 @@ func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, buc
 	result, err := a.sess.CreatePolicy(input)
 	if err != nil {
 		//TODO: handle error later
-		return err
+		return nil, err
 	}
 	fmt.Println("New Policy", result)
 
@@ -135,10 +135,10 @@ func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, buc
 	err = a.attachPolicy(userName, *result.Policy.Arn)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return result, nil
 }
 
 func (a iamClient) CreateAccessKey(userName string) (*iam.CreateAccessKeyOutput,error) {

@@ -69,6 +69,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		Name:      req.Name,
 	}, s3Object)
 
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.Log.Info("S3 resource not found. Ignoring since object must be deleted.")
@@ -159,7 +160,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	//Create policy
 	policyName := strings.Join([]string{s3Object.Name, s3Object.Namespace},"-")
-	err = r.IAMClient.CreateAndAttachPolicy(policyName, user, s3Object.Spec.BucketName)
+	policy, err := r.IAMClient.CreateAndAttachPolicy(policyName, user, s3Object.Spec.BucketName)
 
 	if err != nil {
 		return ctrl.Result{}, err
@@ -167,6 +168,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	err = r.Client.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
+
 			Name: s3Object.Name + "-aws-credentials",
 			Namespace: s3Object.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
@@ -179,7 +181,8 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			},
 		},
 		StringData:       map[string]string{"AWS_SECRET_KEY": *accessKeyOutput.AccessKey.SecretAccessKey,
-											"AWS_ACCESS_KEY_ID": *accessKeyOutput.AccessKey.AccessKeyId},
+											"AWS_ACCESS_KEY_ID": *accessKeyOutput.AccessKey.AccessKeyId,
+											"POLICY_ARN": *policy.Policy.Arn},
 	})
 
 	if err != nil {
