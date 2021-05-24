@@ -69,7 +69,6 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		Name:      req.Name,
 	}, s3Object)
 
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.Log.Info("S3 resource not found. Ignoring since object must be deleted.")
@@ -95,6 +94,22 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			//TODO: Change
 			return ctrl.Result{}, derr
 		}
+		secretObject := &v1.Secret{}
+
+		err := r.Client.Get(ctx, client.ObjectKey{
+			Namespace: req.Namespace,
+			Name:      req.Name,
+		}, secretObject)
+
+		if err != nil {
+			if errors.IsNotFound(err) {
+				r.Log.Info("IAM policy not found. Ignoring since object must be deleted.")
+				return ctrl.Result{}, nil
+			}
+			//Requeue the request
+			return ctrl.Result{}, err
+		}
+
 		s3Object.SetFinalizers(remove(s3Object.GetFinalizers(), "systek.no/finalizer"))
 
 		uerr := r.Client.Update(ctx, s3Object)
@@ -147,7 +162,6 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	//Create user.
 	userName := strings.Join([]string{s3Object.Spec.BucketName, s3Object.Namespace},"-")
 	user, err := r.IAMClient.CreateUser(userName)
-
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -171,6 +185,14 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 			Name: s3Object.Name + "-aws-credentials",
 			Namespace: s3Object.Namespace,
+			Annotations: map[string]string{
+				"systek.no/arnPolicy": *policy.Policy.Arn,
+				"systek.no/iamUser": user,
+			},
+			Labels: map[string]string{
+				"s3operator": "true",
+
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "v1",
@@ -181,8 +203,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			},
 		},
 		StringData:       map[string]string{"AWS_SECRET_KEY": *accessKeyOutput.AccessKey.SecretAccessKey,
-											"AWS_ACCESS_KEY_ID": *accessKeyOutput.AccessKey.AccessKeyId,
-											"POLICY_ARN": *policy.Policy.Arn},
+											"AWS_ACCESS_KEY_ID": *accessKeyOutput.AccessKey.AccessKeyId},
 	})
 
 	if err != nil {

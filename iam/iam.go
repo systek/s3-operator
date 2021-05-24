@@ -33,6 +33,8 @@ type Client interface {
 	CreateUser(string) (string, error)
 	CreateAndAttachPolicy(string, string, string) (*iam.CreatePolicyOutput, error)
 	DeletePolicy(string, string) error
+	DeleteUser(string) error
+	DeleteAccessKey(string, string) error
 }
 
 
@@ -206,3 +208,69 @@ func (a iamClient) CreateUser(userName string) (string, error) {
 
 	return *result.User.UserName, nil
 }
+
+func (a iamClient) DeleteAccessKey(userName string, accessKeyId string) error {
+	input := &iam.DeleteAccessKeyInput{
+		AccessKeyId: aws.String(accessKeyId),
+		UserName:    aws.String(userName),
+	}
+
+	result, err := a.sess.DeleteAccessKey(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case iam.ErrCodeNoSuchEntityException:
+				fmt.Println(iam.ErrCodeNoSuchEntityException, aerr.Error())
+			case iam.ErrCodeLimitExceededException:
+				fmt.Println(iam.ErrCodeLimitExceededException, aerr.Error())
+			case iam.ErrCodeServiceFailureException:
+				fmt.Println(iam.ErrCodeServiceFailureException, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return nil
+	}
+
+	fmt.Println(result)
+	return nil
+}
+
+func (a iamClient) DeleteUser(userName string) error {
+	input := &iam.DeleteUserInput{
+		UserName: aws.String(userName),
+	}
+
+	result, err := a.sess.DeleteUser(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case iam.ErrCodeLimitExceededException:
+				fmt.Println(iam.ErrCodeLimitExceededException, aerr.Error())
+			case iam.ErrCodeNoSuchEntityException:
+				fmt.Println(iam.ErrCodeNoSuchEntityException, aerr.Error())
+			case iam.ErrCodeDeleteConflictException:
+				fmt.Println(iam.ErrCodeDeleteConflictException, aerr.Error())
+			case iam.ErrCodeConcurrentModificationException:
+				fmt.Println(iam.ErrCodeConcurrentModificationException, aerr.Error())
+			case iam.ErrCodeServiceFailureException:
+				fmt.Println(iam.ErrCodeServiceFailureException, aerr.Error())
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return nil
+	}
+
+	fmt.Println(result)
+	return nil
+}
+
