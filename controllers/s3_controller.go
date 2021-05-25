@@ -79,7 +79,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 	// add finalizer
 	if len(s3Object.GetFinalizers()) < 1 {
-		s3Object.SetFinalizers([]string{"systek.no/finalizer"})
+		s3Object.SetFinalizers([]string{"systek.no/finalizer","foregroundDeletion"})
 		err = r.Client.Update(ctx, s3Object)
 		if err != nil {
 			return ctrl.Result{
@@ -93,21 +93,6 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		if derr != nil {
 			//TODO: Change
 			return ctrl.Result{}, derr
-		}
-		secretObject := &v1.Secret{}
-
-		err := r.Client.Get(ctx, client.ObjectKey{
-			Namespace: req.Namespace,
-			Name:      req.Name,
-		}, secretObject)
-
-		if err != nil {
-			if errors.IsNotFound(err) {
-				r.Log.Info("IAM policy not found. Ignoring since object must be deleted.")
-				return ctrl.Result{}, nil
-			}
-			//Requeue the request
-			return ctrl.Result{}, err
 		}
 
 		s3Object.SetFinalizers(remove(s3Object.GetFinalizers(), "systek.no/finalizer"))
@@ -179,7 +164,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
+	blockOwnerDeletion := true
 	err = r.Client.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 
@@ -195,10 +180,11 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "v1",
+					APIVersion: "systek.no/v1",
 					Kind: "S3",
 					Name: s3Object.Name,
 					UID: s3Object.UID,
+					BlockOwnerDeletion: &blockOwnerDeletion,
 				},
 			},
 		},

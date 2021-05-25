@@ -14,7 +14,9 @@ rules:
   - create
   - delete
   - get
+  - list
   - update
+  - watch
 - apiGroups:
   - systek.no
   resources:

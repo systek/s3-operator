@@ -39,10 +39,7 @@ type SecretsReconciler struct {
 	IAMClient iam.Client
 }
 
-// +kubebuilder:rbac:groups=systek.no,resources=s3s,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=systek.no,resources=s3s/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=systek.no,resources=s3s/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=create;delete;update;get
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=create;delete;update;get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -97,11 +94,13 @@ func (r *SecretsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, derr
 		}
 		// delete accesskey
-		accessKeyId := secretObject.StringData["AWS_ACCESS_KEY_ID"]
-		derr = r.IAMClient.DeleteAccessKey(iamUser, accessKeyId)
+		accessKeyId := secretObject.Data["AWS_ACCESS_KEY_ID"]
+
+		derr = r.IAMClient.DeleteAccessKey(iamUser, string(accessKeyId))
 
 		if derr != nil {
 			//TODO: Change
+			fmt.Println("Could not delete accesskey", derr)
 			return ctrl.Result{}, derr
 		}
 
@@ -133,21 +132,19 @@ func (r *SecretsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		CreateFunc: func(event event.CreateEvent) bool {
 			labels := event.Object.GetLabels()
 			if labels != nil {
-				if value, ok := labels["s3operator"]; ok {
-					fmt.Println(value)
+				if _, ok := labels["s3operator"]; ok {
 					return true
 				}
 			}
 			return false
 		},
 		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-			return false
+			return true
 		},
 		UpdateFunc:  func(event event.UpdateEvent) bool {
 			labels := event.ObjectNew.GetLabels()
 			if labels != nil {
-				if value, ok := labels["s3operator"]; ok {
-					fmt.Println(value)
+				if _, ok := labels["s3operator"]; ok {
 					return true
 				}
 			}
@@ -156,7 +153,6 @@ func (r *SecretsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.Secret{}).
-		//Prevent reconcile on status changes
 		WithEventFilter(pred).
 		Complete(r)
 }
