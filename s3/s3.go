@@ -3,10 +3,8 @@ package s3
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	awss3 "github.com/aws/aws-sdk-go/service/s3"
 )
 
 func NewS3Client() Client {
@@ -49,18 +47,13 @@ func (a s3Client) CreateBucket(bucketName string) (*s3.CreateBucketOutput, error
 	return resp, nil
 }
 
-func (a s3Client) DeleteBucket(bucketName string) (*s3.DeleteBucketOutput, error) {
-	resp, err := a.sess.DeleteBucket(&s3.DeleteBucketInput{
+func (a s3Client) DeleteBucket(bucketName string) error {
+	_,err := a.sess.DeleteBucket(&s3.DeleteBucketInput{
 		Bucket: aws.String(bucketName),
 	})
 
 	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			if awss3.ErrCodeNoSuchBucket == awsErr.Code() {
-				return nil, nil
-			}
-		}
-		return nil, err
+		return err
 	}
 
 	// Wait until bucket is created before finishing
@@ -71,10 +64,10 @@ func (a s3Client) DeleteBucket(bucketName string) (*s3.DeleteBucketOutput, error
 	})
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	fmt.Printf("Bucket %q successfully deleted\n", bucketName)
-	return resp, nil
+	return nil
 }
 
 //func (a s3Client) Delete() error {}
@@ -82,5 +75,5 @@ func (a s3Client) DeleteBucket(bucketName string) (*s3.DeleteBucketOutput, error
 type Client interface {
 	CreateBucket(string) (*s3.CreateBucketOutput, error)
 
-	DeleteBucket(string) (*s3.DeleteBucketOutput, error)
+	DeleteBucket(string) error
 }

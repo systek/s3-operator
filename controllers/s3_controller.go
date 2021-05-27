@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/systek/s3-operator/iam"
 	v1 "k8s.io/api/core/v1"
@@ -44,6 +43,11 @@ type S3Reconciler struct {
 	S3Client  s3.Client
 	IAMClient iam.Client
 }
+
+const (
+	success = "Success"
+	failed = "Failed"
+)
 
 // +kubebuilder:rbac:groups=systek.no,resources=s3s,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=systek.no,resources=s3s/status,verbs=get;update;patch
@@ -89,10 +93,15 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 	// handle delete
 	if !s3Object.DeletionTimestamp.IsZero() {
-		_, derr := r.S3Client.DeleteBucket(s3Object.Spec.BucketName)
+		derr := r.S3Client.DeleteBucket(s3Object.Spec.BucketName)
 		if derr != nil {
-			//TODO: Change
-			return ctrl.Result{}, derr
+			if awsErr, ok := err.(awserr.Error); ok {
+				if awss3.ErrCodeNoSuchBucket == awsErr.Code() {
+					r.Log.Error(awsErr,"No such bucket exists")
+				}
+			}else{
+				r.Log.Error(derr, "Unexpected error")
+			}
 		}
 
 		s3Object.SetFinalizers(remove(s3Object.GetFinalizers(), "systek.no/finalizer"))
@@ -107,10 +116,15 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	//Check for updates
 	if hasChanged(s3Object) {
-		fmt.Println("Here...")
-		_, derr := r.S3Client.DeleteBucket(s3Object.Status.BucketName)
+		derr := r.S3Client.DeleteBucket(s3Object.Status.BucketName)
 		if derr != nil {
-			return ctrl.Result{}, derr
+			if awsErr, ok := err.(awserr.Error); ok {
+				if awss3.ErrCodeNoSuchBucket == awsErr.Code() {
+					r.Log.Error(awsErr,"No such bucket exists")
+				}
+			}else{
+				r.Log.Error(derr, "Unexpected error")
+			}
 		}
 		//Update status and requeue
 		s3Object.Status = systeknov1.S3Status{}
@@ -123,7 +137,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 
 	// Check if status is Success
-	if s3Object.Status.Status == "Success" {
+	if s3Object.Status.Status == success {
 		return ctrl.Result{}, nil
 	}
 
@@ -132,11 +146,24 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	if aerr, ok := err.(awserr.Error); ok {
 		switch aerr.Code() {
 		case awss3.ErrCodeBucketAlreadyExists:
-			return ctrl.Result{}, err
-		case awss3.ErrCodeBucketAlreadyOwnedByYou:
+			// update s3 status to failed and end reconciler
+			err := r.setFailedState(ctx, s3Object, "Bucket already exists globally")
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
+
+		case awss3.ErrCodeBucketAlreadyOwnedByYou:
+			// update s3 status to failed and end reconciler
+			err := r.setFailedState(ctx, s3Object, "Bucket already owned by account")
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+
 		default:
 			r.Log.Error(aerr, "CreateBucket failed")
+			return ctrl.Result{}, nil
 		}
 	}
 
@@ -196,7 +223,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 	
-	s3Object.Status.Status = "Success"
+	s3Object.Status.Status = success
 	s3Object.Status.Location = *resp.Location
 	err = r.Client.Status().Update(ctx, s3Object)
 	if err != nil {
@@ -233,4 +260,15 @@ func remove(strings []string, removeString string) []string {
 		}
 	}
 	return ret
+}
+
+func (r *S3Reconciler) setFailedState(ctx context.Context, s3Object *systeknov1.S3, message string) error {
+	r.Log.Info("Setting failed state")
+	s3Object.Status.Message = message
+	s3Object.Status.Status = failed
+	err := r.Client.Status().Update(ctx, s3Object)
+	if err != nil {
+		return err
+	}
+	return nil
 }

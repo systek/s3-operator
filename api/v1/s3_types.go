@@ -40,7 +40,7 @@ type S3Status struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=.status.status
 // S3 is the Schema for the s3s API
 type S3 struct {
 	metav1.TypeMeta   `json:",inline"`

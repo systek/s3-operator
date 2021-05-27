@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/systek/s3-operator/iam"
 	v1 "k8s.io/api/core/v1"
@@ -90,8 +89,7 @@ func (r *SecretsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		derr := r.IAMClient.DeletePolicy(policyArn,iamUser)
 
 		if derr != nil {
-			//TODO: Change
-			return ctrl.Result{}, derr
+			r.Log.Error(derr, "Could not delete policy")
 		}
 		// delete accesskey
 		accessKeyId := secretObject.Data["AWS_ACCESS_KEY_ID"]
@@ -99,17 +97,14 @@ func (r *SecretsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		derr = r.IAMClient.DeleteAccessKey(iamUser, string(accessKeyId))
 
 		if derr != nil {
-			//TODO: Change
-			fmt.Println("Could not delete accesskey", derr)
-			return ctrl.Result{}, derr
+			r.Log.Error(derr, "Could not delete accesskey")
 		}
 
 		// delete user
 		derr = r.IAMClient.DeleteUser(iamUser)
 
 		if derr != nil {
-			//TODO: Change
-			return ctrl.Result{}, derr
+			r.Log.Error(derr, "Could not delete user")
 		}
 
 		secretObject.SetFinalizers(remove(secretObject.GetFinalizers(), "systek.no/finalizer"))
@@ -118,7 +113,6 @@ func (r *SecretsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if uerr != nil {
 			return ctrl.Result{}, uerr
 		}
-
 		return ctrl.Result{}, nil
 	}
 

@@ -4,4 +4,4 @@ metadata:
   name: s3-secret-bucket
 spec:
   # Add fields here
-  bucketName: s3-vignesh-bucket-6
+  bucketName: s3-secret-bucket-vignesh

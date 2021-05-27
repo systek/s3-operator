@@ -7,11 +7,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/go-logr/logr"
 	"html/template"
 )
 
 
-func NewIamClient() Client {
+func NewIamClient(log logr.Logger) Client {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("eu-central-1")},
 	)
@@ -21,11 +22,13 @@ func NewIamClient() Client {
 
 	return iamClient{
 		sess: iam.New(sess),
+		log: log,
 	}
 }
 
 type iamClient struct {
 	sess *iam.IAM
+	log  logr.Logger
 }
 
 type Client interface {
@@ -38,29 +41,6 @@ type Client interface {
 }
 
 
-func (a iamClient) DeletePolicy(policyArn string, userName string) error {
-
-
-	//detach user policy
-	_, err := a.sess.DetachUserPolicy(&iam.DetachUserPolicyInput{
-		PolicyArn: aws.String(policyArn),
-		UserName:  aws.String(userName),
-	})
-	if err != nil {
-		fmt.Println("Could not detach user policy")
-		return err
-	}
-	//delete user policy
-	_, err = a.sess.DeletePolicy(&iam.DeletePolicyInput{
-		PolicyArn: aws.String(policyArn),
-	})
-	if err != nil {
-		fmt.Println("Could not delete user policy")
-		return err
-	}
-
-	return nil
-}
 
 func (a iamClient) attachPolicy(userName string, policyArn string) error {
 	input := &iam.AttachUserPolicyInput{
@@ -220,18 +200,19 @@ func (a iamClient) DeleteAccessKey(userName string, accessKeyId string) error {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case iam.ErrCodeNoSuchEntityException:
-				fmt.Println(iam.ErrCodeNoSuchEntityException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeNoSuchEntityException)
 			case iam.ErrCodeLimitExceededException:
-				fmt.Println(iam.ErrCodeLimitExceededException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeLimitExceededException)
 			case iam.ErrCodeServiceFailureException:
-				fmt.Println(iam.ErrCodeServiceFailureException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeServiceFailureException)
 			default:
-				fmt.Println(aerr.Error())
+				a.log.Error(aerr, "AWS - Unexpected error")
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			a.log.Error(aerr, "Unexpected error")
+
 		}
 		return nil
 	}
@@ -245,32 +226,53 @@ func (a iamClient) DeleteUser(userName string) error {
 		UserName: aws.String(userName),
 	}
 
-	result, err := a.sess.DeleteUser(input)
+	_, err := a.sess.DeleteUser(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case iam.ErrCodeLimitExceededException:
-				fmt.Println(iam.ErrCodeLimitExceededException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeLimitExceededException)
 			case iam.ErrCodeNoSuchEntityException:
-				fmt.Println(iam.ErrCodeNoSuchEntityException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeNoSuchEntityException)
 			case iam.ErrCodeDeleteConflictException:
-				fmt.Println(iam.ErrCodeDeleteConflictException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeDeleteConflictException)
 			case iam.ErrCodeConcurrentModificationException:
-				fmt.Println(iam.ErrCodeConcurrentModificationException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeConcurrentModificationException)
 			case iam.ErrCodeServiceFailureException:
-				fmt.Println(iam.ErrCodeServiceFailureException, aerr.Error())
+				a.log.Error(aerr, iam.ErrCodeServiceFailureException)
 			default:
-				fmt.Println(aerr.Error())
+				a.log.Error(aerr, "AWS: unexpected error")
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			a.log.Error(aerr, "Unexpected error")
 		}
 		return nil
 	}
-
-	fmt.Println(result)
 	return nil
 }
 
+func (a iamClient) DeletePolicy(policyArn string, userName string) error {
+
+
+	//detach user policy
+	_, err := a.sess.DetachUserPolicy(&iam.DetachUserPolicyInput{
+		PolicyArn: aws.String(policyArn),
+		UserName:  aws.String(userName),
+	})
+	if err != nil {
+		a.log.Error(err, "Could not detach user policy")
+		return err
+	}
+	//delete user policy
+	_, err = a.sess.DeletePolicy(&iam.DeletePolicyInput{
+		PolicyArn: aws.String(policyArn),
+	})
+	if err != nil {
+		a.log.Error(err, "Could not delete user policy")
+		return err
+	}
+
+	return nil
+}

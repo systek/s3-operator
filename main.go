@@ -82,7 +82,7 @@ func main() {
 	}
 
 	s3Client := s3.NewS3Client()
-	iamClient := iam.NewIamClient()
+	iamClient := iam.NewIamClient(ctrl.Log.WithName("client").WithName("IAM"))
 	if err = (&controllers.S3Reconciler{
 		Client:   mgr.GetClient(),
 		Log:      ctrl.Log.WithName("controllers").WithName("S3"),
