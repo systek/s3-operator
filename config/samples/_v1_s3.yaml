@@ -1,7 +1,7 @@
 apiVersion: systek.no/v1
 kind: S3
 metadata:
-  name: s3-secret-bucket
+  name: s3-bucket-vintertest
 spec:
   # Add fields here
-  bucketName: s3-secret-bucket-vignesh
+  bucketName: s3-secret-vintertest

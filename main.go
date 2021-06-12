@@ -84,10 +84,10 @@ func main() {
 	s3Client := s3.NewS3Client()
 	iamClient := iam.NewIamClient(ctrl.Log.WithName("client").WithName("IAM"))
 	if err = (&controllers.S3Reconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("S3"),
-		Scheme:   mgr.GetScheme(),
-		S3Client: s3Client,
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("S3"),
+		Scheme:    mgr.GetScheme(),
+		S3Client:  s3Client,
 		IAMClient: iamClient,
 		//
 	}).SetupWithManager(mgr); err != nil {
@@ -96,9 +96,9 @@ func main() {
 	}
 
 	if err = (&controllers.SecretsReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("Secrets"),
-		Scheme:   mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("Secrets"),
+		Scheme:    mgr.GetScheme(),
 		IAMClient: iamClient,
 		//
 	}).SetupWithManager(mgr); err != nil {

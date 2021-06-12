@@ -19,20 +19,19 @@ package controllers
 import (
 	"context"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/systek/s3-operator/iam"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"strings"
-
 	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/go-logr/logr"
 	systeknov1 "github.com/systek/s3-operator/api/v1"
+	"github.com/systek/s3-operator/iam"
 	"github.com/systek/s3-operator/s3"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"strings"
 )
 
 // S3Reconciler reconciles a S3 object
@@ -46,7 +45,7 @@ type S3Reconciler struct {
 
 const (
 	success = "Success"
-	failed = "Failed"
+	failed  = "Failed"
 )
 
 // +kubebuilder:rbac:groups=systek.no,resources=s3s,verbs=get;list;watch;create;update;patch;delete
@@ -56,7 +55,6 @@ const (
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
 // the S3 object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
@@ -83,7 +81,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 	// add finalizer
 	if len(s3Object.GetFinalizers()) < 1 {
-		s3Object.SetFinalizers([]string{"systek.no/finalizer","foregroundDeletion"})
+		s3Object.SetFinalizers([]string{"systek.no/finalizer", "foregroundDeletion"})
 		err = r.Client.Update(ctx, s3Object)
 		if err != nil {
 			return ctrl.Result{
@@ -97,9 +95,9 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		if derr != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awss3.ErrCodeNoSuchBucket == awsErr.Code() {
-					r.Log.Error(awsErr,"No such bucket exists")
+					r.Log.Error(awsErr, "No such bucket exists")
 				}
-			}else{
+			} else {
 				r.Log.Error(derr, "Unexpected error")
 			}
 		}
@@ -116,16 +114,41 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 
 	//Check for updates
 	if hasChanged(s3Object) {
+
+		secretObject := &v1.Secret{}
+
+		err := r.Client.Get(ctx, client.ObjectKey{
+			Namespace: req.Namespace,
+			Name:      s3Object.Status.BucketName,
+		}, secretObject)
+
+		if err != nil {
+			if errors.IsNotFound(err) {
+				r.Log.Info("Secret not found. Ignoring since object must be deleted.")
+			} else {
+				//Requeue the request
+				return ctrl.Result{}, err
+			}
+		} else {
+			err = r.Client.Delete(ctx, secretObject)
+
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+		}
+
 		derr := r.S3Client.DeleteBucket(s3Object.Status.BucketName)
 		if derr != nil {
 			if awsErr, ok := err.(awserr.Error); ok {
 				if awss3.ErrCodeNoSuchBucket == awsErr.Code() {
-					r.Log.Error(awsErr,"No such bucket exists")
+					r.Log.Error(awsErr, "No such bucket exists")
 				}
-			}else{
+			} else {
 				r.Log.Error(derr, "Unexpected error")
 			}
 		}
+
 		//Update status and requeue
 		s3Object.Status = systeknov1.S3Status{}
 		uerr := r.Client.Status().Update(ctx, s3Object)
@@ -172,7 +195,7 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 
 	//Create user.
-	userName := strings.Join([]string{s3Object.Spec.BucketName, s3Object.Namespace},"-")
+	userName := strings.Join([]string{s3Object.Spec.BucketName, s3Object.Namespace}, "-")
 	user, err := r.IAMClient.CreateUser(userName)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -185,46 +208,49 @@ func (r *S3Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	}
 
 	//Create policy
-	policyName := strings.Join([]string{s3Object.Name, s3Object.Namespace},"-")
+	policyName := strings.Join([]string{s3Object.Name, s3Object.Namespace}, "-")
 	policy, err := r.IAMClient.CreateAndAttachPolicy(policyName, user, s3Object.Spec.BucketName)
 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	blockOwnerDeletion := true
+
+	//Create secret
 	err = r.Client.Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 
-			Name: s3Object.Name + "-aws-credentials",
+			Name:      s3Object.Spec.BucketName,
 			Namespace: s3Object.Namespace,
 			Annotations: map[string]string{
 				"systek.no/arnPolicy": *policy.Policy.Arn,
-				"systek.no/iamUser": user,
+				"systek.no/iamUser":   user,
 			},
 			Labels: map[string]string{
 				"s3operator": "true",
-
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: "systek.no/v1",
-					Kind: "S3",
-					Name: s3Object.Name,
-					UID: s3Object.UID,
+					APIVersion:         "systek.no/v1",
+					Kind:               "S3",
+					Name:               s3Object.Name,
+					UID:                s3Object.UID,
 					BlockOwnerDeletion: &blockOwnerDeletion,
 				},
 			},
 		},
-		StringData:       map[string]string{"AWS_SECRET_KEY": *accessKeyOutput.AccessKey.SecretAccessKey,
-											"AWS_ACCESS_KEY_ID": *accessKeyOutput.AccessKey.AccessKeyId},
+		StringData: map[string]string{"AWS_SECRET_KEY": *accessKeyOutput.AccessKey.SecretAccessKey,
+			"AWS_ACCESS_KEY_ID": *accessKeyOutput.AccessKey.AccessKeyId},
 	})
 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	
+
 	s3Object.Status.Status = success
 	s3Object.Status.Location = *resp.Location
+	s3Object.Status.BucketName = s3Object.Spec.BucketName
+	s3Object.Status.Message = success
 	err = r.Client.Status().Update(ctx, s3Object)
 	if err != nil {
 		return ctrl.Result{}, err

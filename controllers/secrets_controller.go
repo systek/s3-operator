@@ -29,7 +29,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
 // S3Reconciler reconciles a S3 object
 type SecretsReconciler struct {
 	client.Client
@@ -86,7 +85,7 @@ func (r *SecretsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		policyArn := secretObject.Annotations["systek.no/arnPolicy"]
 		iamUser := secretObject.Annotations["systek.no/iamUser"]
 
-		derr := r.IAMClient.DeletePolicy(policyArn,iamUser)
+		derr := r.IAMClient.DeletePolicy(policyArn, iamUser)
 
 		if derr != nil {
 			r.Log.Error(derr, "Could not delete policy")
@@ -119,7 +118,6 @@ func (r *SecretsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecretsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred := predicate.Funcs{
@@ -135,7 +133,7 @@ func (r *SecretsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
 			return true
 		},
-		UpdateFunc:  func(event event.UpdateEvent) bool {
+		UpdateFunc: func(event event.UpdateEvent) bool {
 			labels := event.ObjectNew.GetLabels()
 			if labels != nil {
 				if _, ok := labels["s3operator"]; ok {
@@ -150,5 +148,3 @@ func (r *SecretsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithEventFilter(pred).
 		Complete(r)
 }
-
-

@@ -11,7 +11,6 @@ import (
 	"html/template"
 )
 
-
 func NewIamClient(log logr.Logger) Client {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("eu-central-1")},
@@ -22,7 +21,7 @@ func NewIamClient(log logr.Logger) Client {
 
 	return iamClient{
 		sess: iam.New(sess),
-		log: log,
+		log:  log,
 	}
 }
 
@@ -39,8 +38,6 @@ type Client interface {
 	DeleteUser(string) error
 	DeleteAccessKey(string, string) error
 }
-
-
 
 func (a iamClient) attachPolicy(userName string, policyArn string) error {
 	input := &iam.AttachUserPolicyInput{
@@ -77,11 +74,11 @@ func (a iamClient) attachPolicy(userName string, policyArn string) error {
 	return nil
 }
 
-func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, bucketName string) (*iam.CreatePolicyOutput, error){
+func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, bucketName string) (*iam.CreatePolicyOutput, error) {
 
 	anonBucketName := struct {
 		BucketName string
-	} {
+	}{
 		BucketName: bucketName,
 	}
 	policyDocument := `{
@@ -123,7 +120,7 @@ func (a iamClient) CreateAndAttachPolicy(policyName string, userName string, buc
 	return result, nil
 }
 
-func (a iamClient) CreateAccessKey(userName string) (*iam.CreateAccessKeyOutput,error) {
+func (a iamClient) CreateAccessKey(userName string) (*iam.CreateAccessKeyOutput, error) {
 	input := &iam.CreateAccessKeyInput{
 		UserName: aws.String(userName),
 	}
@@ -254,7 +251,6 @@ func (a iamClient) DeleteUser(userName string) error {
 }
 
 func (a iamClient) DeletePolicy(policyArn string, userName string) error {
-
 
 	//detach user policy
 	_, err := a.sess.DetachUserPolicy(&iam.DetachUserPolicyInput{

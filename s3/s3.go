@@ -48,7 +48,7 @@ func (a s3Client) CreateBucket(bucketName string) (*s3.CreateBucketOutput, error
 }
 
 func (a s3Client) DeleteBucket(bucketName string) error {
-	_,err := a.sess.DeleteBucket(&s3.DeleteBucketInput{
+	_, err := a.sess.DeleteBucket(&s3.DeleteBucketInput{
 		Bucket: aws.String(bucketName),
 	})
 
